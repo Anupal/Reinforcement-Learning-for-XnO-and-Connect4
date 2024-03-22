@@ -6,7 +6,9 @@ from players.minimax import TTTMinimaxPlayer, TTTMinimaxABPPlayer
 from players.qleaarning import TTTQLearningPlayer, train_q_learning_players
 from multiprocessing import Process, Queue
 
+
 NUM_GAMES = 100
+QLEARNING_EPISODES = 50_000
 
 
 def match(player_x_class, player_o_class, num_games, trained_ql_player_x, trained_ql_player_o, results_queue):
@@ -42,7 +44,7 @@ def match(player_x_class, player_o_class, num_games, trained_ql_player_x, traine
 def main():
     
     player_classes = [TTTMinimaxPlayer, TTTMinimaxABPPlayer, TTTQLearningPlayer]
-    trained_ql_player_x, trained_ql_player_o = train_q_learning_players(30_000, TTTQLearningPlayer("X"), TTTQLearningPlayer("O"), TicTacToe)
+    trained_ql_player_x, trained_ql_player_o = train_q_learning_players(QLEARNING_EPISODES, TTTQLearningPlayer("X"), TTTQLearningPlayer("O"), TicTacToe)
 
 
     results_queue, processes = Queue(), []
@@ -53,7 +55,6 @@ def main():
             processes.append(
                 Process(target=match, args=(player_x_class, player_o_class, NUM_GAMES, trained_ql_player_x, trained_ql_player_o, results_queue))
             )
-            # [player_x_class.to_string() + "," + player_o_class.to_string()]
             
     for process in processes:
         process.start()

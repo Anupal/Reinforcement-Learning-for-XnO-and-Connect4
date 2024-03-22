@@ -14,7 +14,7 @@ class TicTacToe:
         """Allows the player to place their mark on the board based on the given row and column."""
         if 0 <= row < 3 and 0 <= col < 3 and self.board[row][col] == " ":
             self.board[row][col] = self.current_player
-            if self.check_win():
+            if self.check_win(self.current_player):  # Pass current player's symbol
                 return True, self.current_player
             elif self.check_draw():
                 return True, None
@@ -23,15 +23,16 @@ class TicTacToe:
             print("Invalid move. Please try again.")
         return False, None
 
-    def check_win(self):
-        """Checks if the current player has won the game."""
-        player = self.current_player
+    def check_win(self, player_symbol):
+        """Checks if the specified player has won the game."""
         for i in range(3):
-            if all([self.board[i][j] == player for j in range(3)]) or \
-               all([self.board[j][i] == player for j in range(3)]):
+            # Check rows and columns
+            if all([self.board[i][j] == player_symbol for j in range(3)]) or \
+               all([self.board[j][i] == player_symbol for j in range(3)]):
                 return True
-        if all([self.board[i][i] == player for i in range(3)]) or \
-           all([self.board[i][2-i] == player for i in range(3)]):
+        # Check diagonals
+        if all([self.board[i][i] == player_symbol for i in range(3)]) or \
+           all([self.board[i][2-i] == player_symbol for i in range(3)]):
             return True
         return False
 

@@ -9,13 +9,14 @@ class TTTMinimaxPlayer:
         return best_move
 
     @classmethod
-    def to_string(self) -> str:
+    def to_string(cls) -> str:
         return "minimax"
 
     def minimax(self, game, is_maximizing):
-        """Minimax algorithm to evaluate the best move."""
-        if game.check_win():
-            return (1, None) if not is_maximizing else (-1, None)
+        if game.check_win(self.symbol):  # Check if self.symbol has won
+            return (1, None)
+        elif game.check_win(self.opponent_symbol):  # Check if self.opponent_symbol has won
+            return (-1, None)
         elif game.check_draw():
             return (0, None)
 
@@ -51,13 +52,15 @@ class TTTMinimaxABPPlayer:
         return best_move
 
     @classmethod
-    def to_string(self) -> str:
+    def to_string(cls) -> str:
         return "minimax_abp"
 
     def minimax(self, game, is_maximizing, alpha, beta):
         """Minimax algorithm with Alpha-Beta Pruning to evaluate the best move."""
-        if game.check_win():
-            return (1, None) if not is_maximizing else (-1, None)
+        if game.check_win(self.symbol):  # Check if self.symbol has won
+            return (1, None) if is_maximizing else (-1, None)
+        elif game.check_win(self.opponent_symbol):  # Check if opponent has won
+            return (-1, None) if is_maximizing else (1, None)
         elif game.check_draw():
             return (0, None)
 
@@ -79,12 +82,12 @@ class TTTMinimaxABPPlayer:
                         if score > best_score:
                             best_score, best_move = score, (row, col)
                         alpha = max(alpha, score)
+                        if alpha >= beta:
+                            break
                     else:
                         if score < best_score:
                             best_score, best_move = score, (row, col)
                         beta = min(beta, score)
-                    if beta <= alpha:
-                        break
-            if beta <= alpha:
-                break
+                        if beta <= alpha:
+                            break
         return best_score, best_move

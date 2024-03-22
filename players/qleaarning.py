@@ -3,7 +3,7 @@ import random
 
 
 class TTTQLearningPlayer:
-    def __init__(self, symbol, learning_rate=0.1, discount_factor=0.9, exploration_rate=0.1):
+    def __init__(self, symbol, learning_rate=0.1, discount_factor=0.95, exploration_rate=0.1):
         self.symbol = symbol
         self.learning_rate = learning_rate  # Alpha
         self.discount_factor = discount_factor  # Gamma

@@ -8,6 +8,10 @@ class TTTMinimaxPlayer:
         _, best_move = self.minimax(game, True)
         return best_move
 
+    @classmethod
+    def to_string(self) -> str:
+        return "minimax"
+
     def minimax(self, game, is_maximizing):
         """Minimax algorithm to evaluate the best move."""
         if game.check_win():
@@ -45,6 +49,10 @@ class TTTMinimaxABPPlayer:
         """Determine the best move using the Minimax algorithm with Alpha-Beta Pruning."""
         _, best_move = self.minimax(game, True, -float('inf'), float('inf'))
         return best_move
+
+    @classmethod
+    def to_string(self) -> str:
+        return "minimax_abp"
 
     def minimax(self, game, is_maximizing, alpha, beta):
         """Minimax algorithm with Alpha-Beta Pruning to evaluate the best move."""

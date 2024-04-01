@@ -3,7 +3,7 @@ import random
 
 
 class TTTQLearningPlayer:
-    def __init__(self, symbol, learning_rate=0.1, discount_factor=0.95, exploration_rate=0.1):
+    def __init__(self, symbol, learning_rate=0.1, discount_factor=0.9, exploration_rate=0.3):
         self.symbol = symbol
         self.learning_rate = learning_rate  # Alpha
         self.discount_factor = discount_factor  # Gamma
@@ -47,6 +47,8 @@ class TTTQLearningPlayer:
 
     def input(self, game):
         """Determine the best move using the current Q-table."""
+        if game.beginning:
+            game.beginning = False
         state = self.get_state(game)
         available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
         action = self.choose_action(state, available_actions)
@@ -61,14 +63,27 @@ class RandomPlayer:
     """A simple random player for Tic Tac Toe."""
     def __init__(self, symbol):
         self.symbol = symbol
+        self.last_action = None
+    
+    def get_state(self, game):
+        """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
+        return tuple([tuple(row) for row in game.board])
 
     def input(self, game):
+        if game.beginning:
+            game.beginning = False
         available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
-        return random.choice(available_actions)
+        action = random.choice(available_actions)
+        self.last_action = action
+        return action
+
+    def get_last_action(self):
+        """Returns the last action taken by this player."""
+        return self.last_action
 
 
 def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class):
-    print("Traning Qlearning player x and o")
+    print("Training Q-learning players X and O with Random player.")
     win_count = {"X": 0, "O": 0, "Draw": 0}
 
     for episode in range(num_episodes):
@@ -76,16 +91,13 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
         
         # Alternate starting player each episode
         if episode % 2 == 0:
-            player_x, player_o = ql_player_x, ql_player_o
+            player_x, player_o = ql_player_x, RandomPlayer("O")
         else:
-            player_x, player_o = ql_player_o, ql_player_x
+            player_x, player_o = RandomPlayer("X"), ql_player_o
             
-        player_x.symbol, player_o.symbol = "X", "O"  # Ensure symbols are set correctly for this episode
-        
         current_player = player_x  # X starts the game
 
         while True:
-            state = current_player.get_state(game)
             row, col = current_player.input(game)
             game_over, winner = game.user_input(row, col)
 
@@ -117,3 +129,49 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
 
     print(f"Training complete. Win counts: {win_count}")
     return ql_player_x, ql_player_o
+
+
+def evaluate_players(player_x, player_o, game_class, num_games=100):
+    win_count = {"X": 0, "O": 0, "Draw": 0}
+    
+    for _ in range(num_games):
+        game = game_class()
+        current_player = player_x
+        
+        while True:
+            row, col = current_player.input(game)
+            game_over, winner = game.user_input(row, col)
+
+            if game_over:
+                if winner == "X":
+                    win_count["X"] += 1
+                elif winner == "O":
+                    win_count["O"] += 1
+                else:
+                    win_count["Draw"] += 1
+                break
+
+            current_player = player_x if current_player == player_o else player_o
+    
+    return win_count
+
+
+def tune_parameters(game_class, num_episodes, param_grid):
+    best_params = {}
+    best_avg_win_rate = -1
+    
+    for learning_rate in param_grid['learning_rate']:
+        for discount_factor in param_grid['discount_factor']:
+            for exploration_rate in param_grid['exploration_rate']:
+                ql_player_x = TTTQLearningPlayer("X", learning_rate, discount_factor, exploration_rate)
+                ql_player_o = TTTQLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
+                
+                ql_player_x, ql_player_o = train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
+                
+                avg_win_rate = (evaluate_players(ql_player_x, ql_player_o, game_class)['X'] + evaluate_players(ql_player_x, ql_player_o, game_class)['O']) / (2 * num_episodes)
+                
+                if avg_win_rate > best_avg_win_rate:
+                    best_avg_win_rate = avg_win_rate
+                    best_params = {'learning_rate': learning_rate, 'discount_factor': discount_factor, 'exploration_rate': exploration_rate}
+    
+    return best_params, best_avg_win_rate

@@ -1,21 +1,26 @@
+import pandas as pd
 import json
 
 from game.ttt import play_tic_tac_toe, TicTacToe
 from players.human import TTTHumanPlayer
 from players.minimax import TTTMinimaxPlayer, TTTMinimaxABPPlayer
 from players.qleaarning import TTTQLearningPlayer, train_q_learning_players
+from players.default import TTTDefaultPlayer
 from multiprocessing import Process, Queue
 
 
 NUM_GAMES = 100
-QLEARNING_EPISODES = 50_000
+QLEARNING_EPISODES = 30_000
 
 
 def match(player_x_class, player_o_class, num_games, trained_ql_player_x, trained_ql_player_o, results_queue):
     game_stats = {
         player_x_class.to_string() + " wins": 0,
         player_o_class.to_string() + " wins": 0,
-        "draws": 0
+        player_x_class.to_string() + " draws": 0,
+        player_o_class.to_string() + " draws": 0,
+        player_x_class.to_string() + " win rate (%)": 0,
+        player_o_class.to_string() + " win rate (%)": 0
     }
     print(player_x_class.to_string(), "vs", player_o_class.to_string())
     for i in range(num_games):
@@ -36,17 +41,22 @@ def match(player_x_class, player_o_class, num_games, trained_ql_player_x, traine
         elif winner == "O":
             game_stats[player_o.to_string() + " wins"] += 1
         else:
-            game_stats["draws"] += 1
+            game_stats[player_x.to_string() + " draws"] += 1
+            game_stats[player_o.to_string() + " draws"] += 1
+    
+    total_games = num_games * 2  # Total games played by both players
+    game_stats[player_x_class.to_string() + " win rate (%)"] = (game_stats[player_x_class.to_string() + " wins"] / total_games) * 100
+    game_stats[player_o_class.to_string() + " win rate (%)"] = (game_stats[player_o_class.to_string() + " wins"] / total_games) * 100
     
     results_queue.put({player_x_class.to_string() + "," + player_o_class.to_string(): game_stats})
 
 
 def main():
-    
-    player_classes = [TTTMinimaxPlayer, TTTMinimaxABPPlayer, TTTQLearningPlayer]
+    player_classes = [TTTMinimaxPlayer, TTTMinimaxABPPlayer, TTTQLearningPlayer, TTTDefaultPlayer]
     trained_ql_player_x, trained_ql_player_o = train_q_learning_players(QLEARNING_EPISODES, TTTQLearningPlayer("X"), TTTQLearningPlayer("O"), TicTacToe)
 
 
+    print("\nMatches:")
     results_queue, processes = Queue(), []
     for player_x_class in player_classes:
         for player_o_class in player_classes:
@@ -62,12 +72,33 @@ def main():
     for process in processes:
         process.join()
 
-
     result = {}
     while not results_queue.empty():
         result |= results_queue.get()
     
-    print(json.dumps(result, indent=2))
+    # print(json.dumps(result, indent=2))
+
+   # Display pairing results
+    print("\nPairing Results:")
+    pairing_df = pd.DataFrame(result).T
+    print(pairing_df.fillna("-"))
+    pairing_df = pairing_df.fillna(0).astype(int)
+
+    # Calculate total wins, draws, and losses for each player
+    total_results = {}
+    for player in player_classes:
+        total_games = (len(player_classes) - 1) * 2 * NUM_GAMES
+        player_name = player.to_string()
+        total_wins = sum(pairing_df[player_name + " wins"])
+        total_draws = sum(pairing_df[player_name + " draws"])
+        total_losses = total_games - total_wins - total_draws
+        total_win_rate = total_wins / total_games * 100
+        total_results[player_name] = {"Games": total_games, "Wins": total_wins, "Draws": total_draws, "Losses": total_losses, "Win Rate (%)": f"{total_win_rate:.2f}"}
+
+    # Display total results for each player
+    print("\nTotal Results:")
+    total_results_df = pd.DataFrame(total_results).T
+    print(total_results_df)
 
 
 if __name__ == "__main__":

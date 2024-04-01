@@ -3,12 +3,14 @@ class TicTacToe:
         """Initialize the Tic Tac Toe board."""
         self.board = [[" " for _ in range(3)] for _ in range(3)]
         self.current_player = "X"
+        self.beginning = True
 
     def print_board(self):
         """Prints the Tic Tac Toe board."""
         for row in self.board:
             print("|".join(row))
             print("-" * 5)
+        print()
 
     def user_input(self, row, col):
         """Allows the player to place their mark on the board based on the given row and column."""
@@ -49,7 +51,7 @@ def play_tic_tac_toe(player_x, player_o, display_board=True):
     game = TicTacToe()
     while True:
         if display_board:
-            game.print_board()
+            print(f"{game.current_player}'s Turn")
         try:
             if game.current_player == "X":
                 row, col = player_x.input(game)
@@ -58,6 +60,7 @@ def play_tic_tac_toe(player_x, player_o, display_board=True):
             game_over, winner = game.user_input(row, col)
             if game_over:
                 return winner
-
+            if display_board:
+                game.print_board()
         except ValueError:
             print("Invalid input. Please enter numbers between 0 and 2.")

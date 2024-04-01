@@ -1,3 +1,6 @@
+import random
+
+
 class TTTMinimaxPlayer:
     def __init__(self, symbol):
         self.symbol = symbol
@@ -5,8 +8,12 @@ class TTTMinimaxPlayer:
 
     def input(self, game):
         """Determine the best move using the Minimax algorithm."""
-        _, best_move = self.minimax(game, True)
-        return best_move
+        if game.beginning:
+            game.beginning = False
+            return random.choice([(i, j) for i in range(3) for j in range(3)])  # Choose a random move
+        else:
+            _, best_move = self.minimax(game, True)
+            return best_move
 
     @classmethod
     def to_string(cls) -> str:
@@ -48,8 +55,12 @@ class TTTMinimaxABPPlayer:
 
     def input(self, game):
         """Determine the best move using the Minimax algorithm with Alpha-Beta Pruning."""
-        _, best_move = self.minimax(game, True, -float('inf'), float('inf'))
-        return best_move
+        if game.beginning:
+            game.beginning = False
+            return random.choice([(i, j) for i in range(3) for j in range(3)])  # Choose a random move
+        else:
+            _, best_move = self.minimax(game, True, -float('inf'), float('inf'))
+            return best_move
 
     @classmethod
     def to_string(cls) -> str:
@@ -58,9 +69,9 @@ class TTTMinimaxABPPlayer:
     def minimax(self, game, is_maximizing, alpha, beta):
         """Minimax algorithm with Alpha-Beta Pruning to evaluate the best move."""
         if game.check_win(self.symbol):  # Check if self.symbol has won
-            return (1, None) if is_maximizing else (-1, None)
+            return (1, None)
         elif game.check_win(self.opponent_symbol):  # Check if opponent has won
-            return (-1, None) if is_maximizing else (1, None)
+            return (-1, None)
         elif game.check_draw():
             return (0, None)
 

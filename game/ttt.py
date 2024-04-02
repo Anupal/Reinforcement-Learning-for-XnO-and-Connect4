@@ -5,6 +5,10 @@ class TicTacToe:
         self.current_player = "X"
         self.beginning = True
 
+    @classmethod
+    def to_string(cls) -> str:
+        return "ttt"
+    
     def print_board(self):
         """Prints the Tic Tac Toe board."""
         for row in self.board:

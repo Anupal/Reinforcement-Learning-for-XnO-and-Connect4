@@ -51,55 +51,6 @@ class TTTQLearningPlayer:
         
         self.last_action = action
         return action
-    
-    def train(self, opponent, game_class, games_to_play=10000, max_exploration_rate=1.0, min_exploration_rate=0.05, decay_rate=0.0005):
-        for game_index in range(games_to_play):
-            # exploration_rate = min_exploration_rate + (max_exploration_rate - min_exploration_rate)*np.exp(-decay_rate*game_index)
-            # exploration_rate = max(min_exploration_rate, exploration_rate)
-
-            exploration_rate = max_exploration_rate
-            game = game_class()
-            
-            while True:
-                state = self.get_state(game)
-                available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
-                if game.current_player == self.symbol:
-                    # Exploration vs Exploitation for the training agent
-                    if random.uniform(0, 1) < exploration_rate:
-                        if game.beginning:
-                            game.beginning = False
-                        action = random.choice(available_actions)
-                    else:
-                        action = self.input(game)
-                    agent_moved = True
-                else:
-                    # Opponent's move
-                    action = opponent.input(game)
-                    agent_moved = False
-
-                game_over, winner = game.user_input(*action)
-                
-                if agent_moved:
-                    next_state = self.get_state(game)
-                    reward = self.determine_reward(winner, game_over)
-                    self.update_q_table(state, action, next_state, game_over, reward)
-        
-                if game_over:
-                    break
-             
-            if game_index % 1000 == 0:
-                print(f"Game {game_index}: Exploration rate = {exploration_rate}")
-    
-    def determine_reward(self, winner, done):
-        """Determines the reward for the agent based on game outcome."""
-        if not done:
-            return 0  # Penalize non-final moves slightly to encourage winning in fewer steps
-        if winner is None:
-            return 0.5  # Draw
-        if winner == self.symbol:
-            return 1  # Win
-        return -1  # Loss
-
 
     def input(self, game):
         """Determine the best move using the current Q-table."""
@@ -113,6 +64,54 @@ class TTTQLearningPlayer:
     def get_last_action(self):
         """Returns the last action taken by this player."""
         return self.last_action
+
+
+class Trainer:
+    def __init__(self, game_class, learning_rate=0.1, discount_factor=0.9):
+        self.game_class = game_class
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+    
+    def train(self, games_to_play=10000, max_exploration_rate=1.0, min_exploration_rate=0.05, decay_rate=0.00005):
+        player_x = TTTQLearningPlayer(symbol="X", learning_rate=self.learning_rate, discount_factor=self.discount_factor)
+        player_o = TTTQLearningPlayer(symbol="O", learning_rate=self.learning_rate, discount_factor=self.discount_factor)
+        
+        for game_index in range(games_to_play):
+            game = self.game_class()
+            exploration_rate = max(min_exploration_rate, max_exploration_rate - decay_rate * game_index)  # Decaying exploration rate
+            
+            while True:
+                current_player = player_x if game.current_player == "X" else player_o
+                state = current_player.get_state(game)
+                available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
+                
+                if random.uniform(0, 1) < exploration_rate:
+                    action = random.choice(available_actions)
+                else:
+                    action = current_player.input(game)
+                
+                game_over, winner = game.user_input(*action)
+                
+                next_state = current_player.get_state(game)  # End state
+                reward = self.determine_reward(current_player.symbol, winner, game_over)
+                current_player.update_q_table(state, action, next_state, game_over, reward)
+
+                if game_over:
+                    break
+                    
+            if game_index % 1000 == 0:
+                print(f"Game {game_index}: Exploration rate = {exploration_rate}")
+        
+        return player_x, player_o
+
+    def determine_reward(self, player_symbol, winner, done):
+        if not done:
+            return -0.01  # Reward for non-terminal moves
+        if winner is None:
+            return 0.5  # Draw
+        if winner == player_symbol:
+            return 1  # Win
+        return -1  # Loss
 
 
 class Connect4QLearningPlayer:
@@ -216,109 +215,3 @@ class Connect4RandomPlayer:
     def get_last_action(self):
         """Returns the last action taken by this player."""
         return self.last_action
-
-
-def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class):
-    print("Training Q-learning players X and O with Random player.")
-    win_count = {"X": 0, "O": 0, "Draw": 0}
-
-    for episode in range(num_episodes):
-        game = game_class()
-
-        if game_class.to_string() == "ttt":
-            random_player_x = TTTRandomPlayer("X")
-            random_player_o = TTTRandomPlayer("O")
-        else:
-            random_player_x = Connect4RandomPlayer("X")
-            random_player_o = Connect4RandomPlayer("O")
-        
-        # Alternate starting player each episode
-        if episode % 2 == 0:
-            player_x, player_o = ql_player_x, random_player_o
-        else:
-            player_x, player_o = random_player_x, ql_player_o
-            
-        current_player = player_x  # X starts the game
-
-        while True:
-            if game_class.to_string() == "ttt":
-                row, col = current_player.input(game)
-                game_over, winner = game.user_input(row, col)
-            else:
-                col = current_player.input(game)
-                game_over, winner = game.user_input(col)
-
-            if game_over:
-                if winner == "X":
-                    win_count["X"] += 1
-                    reward_x = 1
-                    reward_o = -1
-                elif winner == "O":
-                    win_count["O"] += 1
-                    reward_x = -1
-                    reward_o = 1
-                else:  # Draw
-                    win_count["Draw"] += 1
-                    reward_x = reward_o = 0.5
-
-                # Update Q-table for both players at the end of the game
-                next_state_x = next_state_o = None  # No next state since the game is over
-                action_x = player_x.get_last_action()
-                action_o = player_o.get_last_action()
-                state_x = player_x.get_state(game)
-                state_o = player_o.get_state(game)
-                ql_player_x.update_q_table(state_x, action_x, next_state_x, reward_x, True)
-                ql_player_o.update_q_table(state_o, action_o, next_state_o, reward_o, True)
-                break
-
-            # Switch players
-            current_player = player_x if current_player == player_o else player_o
-
-    print(f"Training complete. Win counts: {win_count}")
-    return ql_player_x, ql_player_o
-
-
-def evaluate_players(player_x, player_o, game_class, num_games=100):
-    win_count = {"X": 0, "O": 0, "Draw": 0}
-    
-    for _ in range(num_games):
-        game = game_class()
-        current_player = player_x
-        
-        while True:
-            row, col = current_player.input(game)
-            game_over, winner = game.user_input(row, col)
-
-            if game_over:
-                if winner == "X":
-                    win_count["X"] += 1
-                elif winner == "O":
-                    win_count["O"] += 1
-                else:
-                    win_count["Draw"] += 1
-                break
-
-            current_player = player_x if current_player == player_o else player_o
-    
-    return win_count
-
-
-def tune_parameters(game_class, num_episodes, param_grid):
-    best_params = {}
-    best_avg_win_rate = -1
-    
-    for learning_rate in param_grid['learning_rate']:
-        for discount_factor in param_grid['discount_factor']:
-            for exploration_rate in param_grid['exploration_rate']:
-                ql_player_x = TTTQLearningPlayer("X", learning_rate, discount_factor, exploration_rate)
-                ql_player_o = TTTQLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
-                
-                ql_player_x, ql_player_o = train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
-                
-                avg_win_rate = (evaluate_players(ql_player_x, ql_player_o, game_class)['X'] + evaluate_players(ql_player_x, ql_player_o, game_class)['O']) / (2 * num_episodes)
-                
-                if avg_win_rate > best_avg_win_rate:
-                    best_avg_win_rate = avg_win_rate
-                    best_params = {'learning_rate': learning_rate, 'discount_factor': discount_factor, 'exploration_rate': exploration_rate}
-    
-    return best_params, best_avg_win_rate

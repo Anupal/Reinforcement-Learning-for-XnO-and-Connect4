@@ -3,11 +3,10 @@ import random
 
 
 class TTTQLearningPlayer:
-    def __init__(self, symbol, learning_rate=0.1, discount_factor=0.9, exploration_rate=0.3):
+    def __init__(self, symbol, learning_rate=0.1, discount_factor=0.9):
         self.symbol = symbol
         self.learning_rate = learning_rate  # Alpha
         self.discount_factor = discount_factor  # Gamma
-        self.exploration_rate = exploration_rate  # Epsilon for epsilon-greedy strategy
         self.q_table = {}  # Initialize Q-table as an empty dictionary
         self.last_action = None  # Store the last action taken
     
@@ -19,31 +18,88 @@ class TTTQLearningPlayer:
         """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
         return tuple([tuple(row) for row in game.board])
 
-    def update_q_table(self, state, action, next_state, reward, done):
+    def update_q_table(self, state, action, next_state, done, reward):
         """Update the Q-table using the Q-learning algorithm."""
         if state not in self.q_table:
-            self.q_table[state] = np.zeros((3, 3))
+            self.q_table[state] = np.zeros(9)  # 9 actions - for a 3x3 board
         if next_state not in self.q_table:
-            self.q_table[next_state] = np.zeros((3, 3))
+            self.q_table[next_state] = np.zeros(9)  # 9 actions - for a 3x3 board
+        
+        action_index = action[0] * 3 + action[1]  # Convert 2D action to 1D index
         
         if done:
-            target = reward  # If the game has ended, the reward is the final outcome
+            qsa_observed = reward  # If the game has ended, the reward is the final outcome
         else:
-            target = reward + self.discount_factor * np.max(self.q_table[next_state])
+            qsa_observed = reward + self.discount_factor * np.max(self.q_table[next_state])
         
-        self.q_table[state][action] = (1 - self.learning_rate) * self.q_table[state][action] + \
-                                      self.learning_rate * target
+        td_error = qsa_observed - self.q_table[state][action_index]
+        self.q_table[state][action_index] += self.learning_rate * td_error
 
     def choose_action(self, state, available_actions):
-        if random.uniform(0, 1) < self.exploration_rate:
-            action = random.choice(available_actions)
-        else:
-            q_values = self.q_table.get(state, np.zeros((3, 3)))
-            max_q_value = np.max(q_values[available_actions])
-            actions_with_max_q_value = [action for action in available_actions if q_values[action] == max_q_value]
-            action = random.choice(actions_with_max_q_value)
-        self.last_action = action  # Store the last action
+         # Convert available actions to indices
+        action_indices = [action[0] * 3 + action[1] for action in available_actions]
+        q_values = self.q_table.get(state, np.zeros(9))
+        
+        # Filter Q-values for available actions only
+        available_q_values = q_values[action_indices]
+        max_q_value = np.max(available_q_values)
+        
+        # Filter actions with the max Q-value
+        actions_with_max_q_value = [available_actions[i] for i, q_value in enumerate(available_q_values) if q_value == max_q_value]
+        
+        action = random.choice(actions_with_max_q_value)
+        
+        self.last_action = action
         return action
+    
+    def train(self, opponent, game_class, games_to_play=10000, max_exploration_rate=1.0, min_exploration_rate=0.05, decay_rate=0.0005):
+        for game_index in range(games_to_play):
+            # exploration_rate = min_exploration_rate + (max_exploration_rate - min_exploration_rate)*np.exp(-decay_rate*game_index)
+            # exploration_rate = max(min_exploration_rate, exploration_rate)
+
+            exploration_rate = max_exploration_rate
+            game = game_class()
+            
+            while True:
+                state = self.get_state(game)
+                available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
+                if game.current_player == self.symbol:
+                    # Exploration vs Exploitation for the training agent
+                    if random.uniform(0, 1) < exploration_rate:
+                        if game.beginning:
+                            game.beginning = False
+                        action = random.choice(available_actions)
+                    else:
+                        action = self.input(game)
+                    agent_moved = True
+                else:
+                    # Opponent's move
+                    action = opponent.input(game)
+                    agent_moved = False
+
+                game_over, winner = game.user_input(*action)
+                
+                if agent_moved:
+                    next_state = self.get_state(game)
+                    reward = self.determine_reward(winner, game_over)
+                    self.update_q_table(state, action, next_state, game_over, reward)
+        
+                if game_over:
+                    break
+             
+            if game_index % 1000 == 0:
+                print(f"Game {game_index}: Exploration rate = {exploration_rate}")
+    
+    def determine_reward(self, winner, done):
+        """Determines the reward for the agent based on game outcome."""
+        if not done:
+            return 0  # Penalize non-final moves slightly to encourage winning in fewer steps
+        if winner is None:
+            return 0.5  # Draw
+        if winner == self.symbol:
+            return 1  # Win
+        return -1  # Loss
+
 
     def input(self, game):
         """Determine the best move using the current Q-table."""
@@ -114,7 +170,6 @@ class Connect4QLearningPlayer:
     def get_last_action(self):
         """Returns the last action taken by this player."""
         return self.last_action
-
 
 
 class TTTRandomPlayer:

@@ -1,3 +1,5 @@
+from tabulate import tabulate
+
 class Connect4:
     def __init__(self):
         """Initialize the Connect4 board."""
@@ -7,16 +9,36 @@ class Connect4:
         self.current_player = "X"
         self.beginning = True
 
+    def get_state(self):
+        """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
+        return tuple(tuple(row) for row in self.board)
+    
     @classmethod
     def to_string(cls) -> str:
         return "connect4"
 
     def print_board(self):
-        """Prints the Connect4 board."""
+        """Prints the Connect4 board using tabulate for beautiful formatting with colors."""
+        # Define ANSI color codes
+        red = "\033[91m"
+        blue = "\033[94m"
+        reset = "\033[0m"
+        
+        # Preparing the board for tabulate with colored pieces
+        colored_board = []
         for row in self.board:
-            print("|".join(row))
-            print("-" * (4 * self.cols - 1))
-        print()
+            colored_row = []
+            for cell in row:
+                if cell == "X":
+                    colored_row.append(f"{red}{cell}{reset}")
+                elif cell == "O":
+                    colored_row.append(f"{blue}{cell}{reset}")
+                else:
+                    colored_row.append(" ")
+            colored_board.append(colored_row)
+        
+        # Printing the board using tabulate without headers and indices
+        print(tabulate(colored_board, tablefmt='fancy_grid', showindex=False, headers=[""]*self.cols))
 
     def user_input(self, col):
         """Allows the player to place their mark on the board based on the given column."""

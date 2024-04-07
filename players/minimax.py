@@ -57,6 +57,7 @@ class TTTMinimaxPlayer:
         """Returns the last action taken by this player."""
         return self.last_action
 
+
 class TTTMinimaxABPPlayer:
     def __init__(self, symbol):
         self.symbol = symbol
@@ -140,7 +141,7 @@ class Connect4MinimaxPlayer:
     @classmethod
     def to_string(cls) -> str:
         return "minimax"
-
+    
     def minimax(self, game, is_maximizing, depth):
         if game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)

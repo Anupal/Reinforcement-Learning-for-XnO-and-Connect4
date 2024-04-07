@@ -1,15 +1,14 @@
 import pandas as pd
-import json
 
 from game.connect4 import play_connect4, Connect4
 from players.minimax import Connect4MinimaxPlayer, Connect4MinimaxABPPlayer
-from players.qleaarning import Connect4QLearningPlayer, train_q_learning_players
+from players.qleaarning import Connect4QLearningPlayer, train_q_learning_players, Connect4RandomPlayer
 from players.default import Connect4DefaultPlayer
 from multiprocessing import Process, Queue
 
 
-NUM_GAMES = 5
-QLEARNING_EPISODES = 30_000
+NUM_GAMES = 20
+QLEARNING_EPISODES =230_000
 
 
 def match(player_x_class, player_o_class, num_games, trained_ql_player_x, trained_ql_player_o, results_queue):
@@ -18,8 +17,8 @@ def match(player_x_class, player_o_class, num_games, trained_ql_player_x, traine
         player_o_class.to_string() + " wins": 0,
         player_x_class.to_string() + " draws": 0,
         player_o_class.to_string() + " draws": 0,
-        player_x_class.to_string() + " win rate (%)": 0,
-        player_o_class.to_string() + " win rate (%)": 0
+        # player_x_class.to_string() + " win rate (%)": 0,
+        # player_o_class.to_string() + " win rate (%)": 0
     }
     print(player_x_class.to_string(), "vs", player_o_class.to_string())
     for i in range(num_games):
@@ -44,16 +43,31 @@ def match(player_x_class, player_o_class, num_games, trained_ql_player_x, traine
             game_stats[player_o.to_string() + " draws"] += 1
     
     total_games = num_games * 2  # Total games played by both players
-    game_stats[player_x_class.to_string() + " win rate (%)"] = (game_stats[player_x_class.to_string() + " wins"] / total_games) * 100
-    game_stats[player_o_class.to_string() + " win rate (%)"] = (game_stats[player_o_class.to_string() + " wins"] / total_games) * 100
+    # game_stats[player_x_class.to_string() + " win rate (%)"] = (game_stats[player_x_class.to_string() + " wins"] / total_games) * 100
+    # game_stats[player_o_class.to_string() + " win rate (%)"] = (game_stats[player_o_class.to_string() + " wins"] / total_games) * 100
     
     results_queue.put({player_x_class.to_string() + "," + player_o_class.to_string(): game_stats})
 
 
 def main():
-    player_classes = [Connect4MinimaxPlayer, Connect4MinimaxABPPlayer, Connect4DefaultPlayer, Connect4QLearningPlayer]
-    trained_ql_player_x, trained_ql_player_o = train_q_learning_players(QLEARNING_EPISODES, Connect4QLearningPlayer("X"), Connect4QLearningPlayer("O"), Connect4)
+    player_classes = [Connect4MinimaxPlayer, Connect4MinimaxABPPlayer, Connect4QLearningPlayer, Connect4DefaultPlayer, Connect4RandomPlayer]
+    ql_player_x, ql_player_o = Connect4QLearningPlayer("X", 0.1, 0.99, 0.01), Connect4QLearningPlayer("O", 0.1, 0.99, 0.01),
 
+    ql_player_x.load_q_table("c4_ql_player_x.pkl")
+    ql_player_o.load_q_table("c4_ql_player_o.pkl")
+    
+    if not ql_player_x.q_table or not ql_player_o.q_table:
+        trained_ql_player_x, trained_ql_player_o = train_q_learning_players(
+            QLEARNING_EPISODES,
+            ql_player_x,
+            ql_player_o,
+            Connect4
+        )
+        trained_ql_player_x.save_q_table("c4_ql_player_x.pkl")
+        trained_ql_player_o.save_q_table("c4_ql_player_o.pkl")
+    else:
+        trained_ql_player_x = ql_player_x
+        trained_ql_player_o = ql_player_o
 
     print("\nMatches:")
     results_queue, processes = Queue(), []
@@ -92,7 +106,7 @@ def main():
         total_draws = sum(pairing_df[player_name + " draws"])
         total_losses = total_games - total_wins - total_draws
         total_win_rate = total_wins / total_games * 100
-        total_results[player_name] = {"Games": total_games, "Wins": total_wins, "Draws": total_draws, "Losses": total_losses, "Win Rate (%)": f"{total_win_rate:.2f}"}
+        total_results[player_name] = {"Games": total_games, "Wins": total_wins, "Draws": total_draws, "Losses": total_losses,} # "Win Rate (%)": f"{total_win_rate:.2f}"}
 
     # Display total results for each player
     print("\nTotal Results:")

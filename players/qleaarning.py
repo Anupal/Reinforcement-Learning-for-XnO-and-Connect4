@@ -120,13 +120,26 @@ class Connect4QLearningPlayer:
         if game.beginning:
             game.beginning = False
         state = self.get_state(game)
-        available_actions = [col for col in range(7) if game.is_valid_move(col)]  # Adjust for Connect4
+        available_actions = [col for col in range(game.cols) if game.is_valid_move(col)]  # Adjust for Connect4
         action = self.choose_action(state, available_actions)
         return action
 
     def get_last_action(self):
         """Returns the last action taken by this player."""
         return self.last_action
+
+    def save_q_table(self, filename):
+        """Saves the Q-table to disk."""
+        with open(filename, 'wb') as file:
+            pickle.dump(self.q_table, file)
+
+    def load_q_table(self, filename):
+        """Loads the Q-table from disk."""
+        if os.path.exists(filename):
+            with open(filename, 'rb') as file:
+                self.q_table = pickle.load(file)
+        else:
+            print("File does not exist. Starting with an empty Q-table.")
 
 
 
@@ -193,10 +206,6 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class,
         game = game_class()
 
         if game_class.to_string() == "ttt":
-            # random_player_x = TTTRandomPlayer("X")
-            # random_player_o = TTTRandomPlayer("O")
-            # random_player_x = TTTMinimaxABPPlayer("X")
-            # random_player_o = TTTMinimaxABPPlayer("O")
             random_player_x = TTTDefaultPlayer("X")
             random_player_o = TTTDefaultPlayer("O")
         else:
@@ -265,8 +274,11 @@ def evaluate_players(player_x, player_o, game_class, num_games=100):
         current_player = player_x
         
         while True:
-            row, col = current_player.input(game)
-            game_over, winner = game.user_input(row, col)
+            action = current_player.input(game)
+            if game_class.to_string() == "ttt":
+                game_over, winner = game.user_input(*action)
+            else:
+                game_over, winner = game.user_input(action)
 
             if game_over:
                 if winner == "X":
@@ -291,8 +303,12 @@ def tune_parameters(game_class, num_episodes, param_grid):
             for exploration_rate in param_grid['exploration_rate']:
                 print(f"Combination: learning_rate={learning_rate} discount_factor={discount_factor} exploration_rate={exploration_rate}")
                 # Initialize players with current parameters
-                ql_player_x = TTTQLearningPlayer("X", learning_rate, discount_factor, exploration_rate)
-                ql_player_o = TTTQLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
+                if game_class.to_string() == "ttt":
+                    ql_player_x = TTTQLearningPlayer("X", learning_rate, discount_factor, exploration_rate)
+                    ql_player_o = TTTQLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
+                else:
+                    ql_player_x = Connect4QLearningPlayer("X", learning_rate, discount_factor, exploration_rate)
+                    ql_player_o = Connect4QLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
                 
                 # Train the Q-learning players with the current set of parameters
                 ql_player_x, ql_player_o = train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class, False)

@@ -1,3 +1,5 @@
+from tabulate import tabulate
+
 class TicTacToe:
     def __init__(self):
         """Initialize the Tic Tac Toe board."""
@@ -14,11 +16,27 @@ class TicTacToe:
         return "ttt"
     
     def print_board(self):
-        """Prints the Tic Tac Toe board."""
+        """Prints the Connect4 board using tabulate for beautiful formatting with colors."""
+        # Define ANSI color codes
+        red = "\033[91m"
+        blue = "\033[94m"
+        reset = "\033[0m"
+        
+        # Preparing the board for tabulate with colored pieces
+        colored_board = []
         for row in self.board:
-            print("|".join(row))
-            print("-" * 5)
-        print()
+            colored_row = []
+            for cell in row:
+                if cell == "X":
+                    colored_row.append(f"{red}{cell}{reset}")
+                elif cell == "O":
+                    colored_row.append(f"{blue}{cell}{reset}")
+                else:
+                    colored_row.append(" ")
+            colored_board.append(colored_row)
+        
+        # Printing the board using tabulate without headers and indices
+        print(tabulate(colored_board, tablefmt='fancy_grid', showindex=False)) #, headers=[""]*3))
 
     def user_input(self, row, col):
         """Allows the player to place their mark on the board based on the given row and column."""
@@ -60,6 +78,7 @@ def play_tic_tac_toe(player_x, player_o, display_board=True):
     while True:
         if display_board:
             print(f"{game.current_player}'s Turn")
+            game.print_board()
         try:
             if game.current_player == "X":
                 row, col = player_x.input(game)
@@ -67,8 +86,9 @@ def play_tic_tac_toe(player_x, player_o, display_board=True):
                 row, col = player_o.input(game)
             game_over, winner = game.user_input(row, col)
             if game_over:
+                if display_board:
+                    print("----------")
+                    game.print_board()
                 return winner
-            if display_board:
-                game.print_board()
         except ValueError:
             print("Invalid input. Please enter numbers between 0 and 2.")

@@ -6,16 +6,19 @@ class TTTMinimaxPlayer:
     def __init__(self, symbol):
         self.symbol = symbol
         self.opponent_symbol = "O" if symbol == "X" else "X"
+        self.metric_recursions = 0
     
     def input(self, game):
         """Determine the best move using the Minimax algorithm."""
         self.game = game
         if self.game.beginning:
+            self.metric_recursions = 1
             self.game.beginning = False
             action = random.choice([(i, j) for i in range(3) for j in range(3)])
             self.last_action = action
             return action
         else:
+            self.metric_recursions = 0
             _, best_move = self.minimax(self.game.get_state(), True)
             self.last_action = best_move
             return best_move
@@ -24,8 +27,9 @@ class TTTMinimaxPlayer:
     def to_string(cls) -> str:
         return "minimax"
 
-    @cache
+    # @cache
     def minimax(self, board, is_maximizing):
+        self.metric_recursions += 1
         if self.game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)
         elif self.game.check_win(self.opponent_symbol):  # Check if self.opponent_symbol has won
@@ -62,16 +66,19 @@ class TTTMinimaxABPPlayer:
     def __init__(self, symbol):
         self.symbol = symbol
         self.opponent_symbol = "O" if symbol == "X" else "X"
+        self.metric_recursions = 0
 
     def input(self, game):
         """Determine the best move using the Minimax algorithm with Alpha-Beta Pruning."""
         self.game = game
         if self.game.beginning:
+            self.metric_recursions = 1
             self.game.beginning = False
             action = random.choice([(i, j) for i in range(3) for j in range(3)])
             self.last_action = action
             return action
         else:
+            self.metric_recursions = 0
             _, best_move = self.minimax(self.game.get_state(), True, -float('inf'), float('inf'))
             self.last_action = best_move
             return best_move
@@ -80,9 +87,10 @@ class TTTMinimaxABPPlayer:
     def to_string(cls) -> str:
         return "minimax_abp"
 
-    @cache
+    # @cache
     def minimax(self, board, is_maximizing, alpha, beta):
         """Minimax algorithm with Alpha-Beta Pruning to evaluate the best move."""
+        self.metric_recursions += 1
         if self.game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)
         elif self.game.check_win(self.opponent_symbol):  # Check if opponent has won
@@ -128,13 +136,16 @@ class Connect4MinimaxPlayer:
         self.symbol = symbol
         self.opponent_symbol = "O" if symbol == "X" else "X"
         self.max_depth = max_depth
+        self.metric_recursions = 0
 
     def input(self, game):
         """Determine the best move using the Minimax algorithm."""
         if game.beginning:
+            self.metric_recursions = 1
             game.beginning = False
             return random.randint(0, 6)  # Choose a random column
         else:
+            self.metric_recursions = 0
             _, best_move = self.minimax(game, True, self.max_depth)
             return best_move
 
@@ -143,6 +154,7 @@ class Connect4MinimaxPlayer:
         return "minimax"
     
     def minimax(self, game, is_maximizing, depth):
+        self.metric_recursions += 1
         if game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)
         elif game.check_win(self.opponent_symbol):  # Check if self.opponent_symbol has won
@@ -178,13 +190,16 @@ class Connect4MinimaxABPPlayer:
         self.symbol = symbol
         self.opponent_symbol = "O" if symbol == "X" else "X"
         self.max_depth = max_depth
+        self.metric_recursions = 0
 
     def input(self, game):
         """Determine the best move using the Minimax algorithm with Alpha-Beta Pruning."""
         if game.beginning:
+            self.metric_recursions = 1
             game.beginning = False
             return random.randint(0, 6)  # Choose a random column
         else:
+            self.metric_recursions = 0
             _, best_move = self.minimax(game, True, self.max_depth, -float('inf'), float('inf'))
             return best_move
 
@@ -194,6 +209,7 @@ class Connect4MinimaxABPPlayer:
 
     def minimax(self, game, is_maximizing, depth, alpha, beta):
         """Minimax algorithm with Alpha-Beta Pruning to evaluate the best move."""
+        self.metric_recursions += 1
         if game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)
         elif game.check_win(self.opponent_symbol):  # Check if opponent has won

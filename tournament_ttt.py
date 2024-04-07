@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 
 from game.ttt import play_tic_tac_toe, TicTacToe
@@ -12,6 +13,11 @@ QLEARNING_EPISODES = 200_000
 
 
 def match(player_x_class, player_o_class, num_games, trained_ql_player_x, trained_ql_player_o, results_queue):
+    other_stats_classes = {"minimax", "miniman_abp", "qlearning"}
+    other_stats = {
+        player_x_class.to_string() + " time": [],
+        player_o_class.to_string() + " time": [],
+    }
     game_stats = {
         player_x_class.to_string() + " wins": 0,
         player_o_class.to_string() + " wins": 0,

@@ -38,7 +38,7 @@ class Connect4:
             colored_board.append(colored_row)
         
         # Printing the board using tabulate without headers and indices
-        print(tabulate(colored_board, tablefmt='fancy_grid', showindex=False, headers=[""]*self.cols))
+        print(tabulate(colored_board, tablefmt='fancy_grid', showindex=False)) #, headers=[""]*self.cols))
 
     def user_input(self, col):
         """Allows the player to place their mark on the board based on the given column."""
@@ -117,6 +117,7 @@ def play_connect4(player_x, player_o, display_board=True):
             game_over, winner = game.user_input(col)
             if game_over:
                 if display_board:
+                    print("----------")
                     game.print_board()
                 return winner
         except ValueError:

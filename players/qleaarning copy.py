@@ -26,17 +26,21 @@ class TTTQLearningPlayer:
     def update_q_table(self, state, action, next_state, done, reward):
         # Initialize state in Q-table with random values if it doesn't exist
         if state not in self.q_table:
-            self.q_table[state] = np.zeros(9)  # Use a 3x3 matrix for actions
+            self.q_table[state] = np.zeros((3, 3))  # Use a 3x3 matrix for actions
         if next_state not in self.q_table:
-            self.q_table[next_state] = np.zeros(9)
-        
-        action_index = action[0] * 3 + action[1]
+            self.q_table[next_state] = np.zeros((3, 3))
 
         # Calculate the Temporal Difference (TD) error and update Q-values
-        current_q_value = self.q_table[state][action_index]
-        next_max = np.max(self.q_table[next_state])  # Get the max Q-value for the next state
-        qsa_observed = reward if done else reward + self.discount_factor * next_max
-        self.q_table[state][action_index] += self.learning_rate * (qsa_observed - current_q_value)
+        current_q_value = self.q_table[state][action]
+        if done:
+            qsa_observed = reward
+        else:
+            if self.symbol == "X":
+                qsa_observed = reward + self.discount_factor * np.min(self.q_table[next_state])
+            else:
+                qsa_observed = reward + self.discount_factor * np.max(self.q_table[next_state])
+        td_error = qsa_observed - current_q_value
+        self.q_table[state][action] += self.learning_rate * td_error
 
     def train(self, opponent, game_class, games_to_play=10000, max_exploration_rate=1.0, min_exploration_rate=0.05, decay_rate=0.0005):
         for game_index in range(games_to_play):
@@ -48,6 +52,7 @@ class TTTQLearningPlayer:
                 state = self.get_state(game)
                 available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
                 if game.current_player == self.symbol:
+                    # Exploration vs Exploitation for the training agent
                     if random.uniform(0, 1) < exploration_rate:
                         if game.beginning:
                             game.beginning = False
@@ -56,6 +61,7 @@ class TTTQLearningPlayer:
                         action = self.input(game)
                     agent_moved = True
                 else:
+                    # Opponent's move
                     action = opponent.input(game)
                     agent_moved = False
 
@@ -63,77 +69,104 @@ class TTTQLearningPlayer:
                 
                 if agent_moved:
                     next_state = self.get_state(game)
-                    reward = self.determine_reward(winner, game_over, game)
+                    reward = self.determine_reward(winner, game_over)
                     self.update_q_table(state, action, next_state, game_over, reward)
-
+        
                 if game_over:
                     break
-
-            if game_index % (games_to_play // 10) == 0:
-                print(f"  Game {game_index}: Exploration rate = {exploration_rate}")
+             
+            if game_index % (games_to_play/10) == 0:
+                print(f"Game {game_index}: Exploration rate = {exploration_rate}")
     
-    def determine_reward(self, winner, done, game):
+    def determine_reward(self, winner, done):
         """Determines the reward for the agent based on game outcome."""
         if not done:
-            # advantageous_positions = self.check_for_advantageous_positions(game)
-            # if advantageous_positions > 0:
-            #     return 0.2  # Intermediate reward for creating advantageous positions
             return 0
         if winner is None:
-            return 50  # Draw
+            return 0.5  # Draw
         if winner == self.symbol:
-            return 100  # Win
-        return -100  # Loss
-
-    def check_for_advantageous_positions(self, game):
-        """
-        Check for situations where the agent has two symbols in a row/column/diagonal
-        with the third cell open, indicating a potential win in a future move.
-        """
-        advantageous_positions = 0
-        lines = []
-
-        # Rows and columns
-        for i in range(3):
-            lines.append(game.board[i])  # Rows
-            lines.append([game.board[0][i], game.board[1][i], game.board[2][i]])  # Columns
-
-        # Diagonals
-        lines.append([game.board[0][0], game.board[1][1], game.board[2][2]])
-        lines.append([game.board[0][2], game.board[1][1], game.board[2][0]])
-
-        for line in lines:
-            if line.count(self.symbol) == 2 and line.count(" ") == 1:
-                advantageous_positions += 1
-
-        return advantageous_positions
+            return 1  # Win
+        return -1  # Loss
 
     def choose_action(self, state, available_actions):
-        if state not in self.q_table:
-            print("state not found")
-            q_values = np.zeros(9)
-        else:
-            q_values = self.q_table[state]
-        # Convert available actions to indices
-        available_indices = [action[0] * 3 + action[1] for action in available_actions]
-        # Filter the Q-values based on available actions
-        filtered_q_values = q_values[available_indices]
-        # Select the action with the maximum Q-value
-        max_q_value = np.max(filtered_q_values)
-        # Find all actions that have the max Q-value
-        actions_with_max_q_value = [index for index in available_indices if q_values[index] == max_q_value]
-        # Randomly choose among actions with the max Q-value
-        chosen_index = random.choice(actions_with_max_q_value)
-        # Convert the chosen index back to 2D action
-        return divmod(chosen_index, 3)
+        q_values = self.q_table.get(state, np.zeros((3, 3)))  # Default to zeros if state is unseen
+        max_q_value = np.max([q_values[action] for action in available_actions])
+
+        # Find actions with the max Q-value
+        actions_with_max_q_value = [action for action in available_actions if q_values[action] == max_q_value]
+
+        # Stochastically choose among actions with the max Q-value
+        best_action = random.choice(actions_with_max_q_value)
+        return best_action
 
     def input(self, game):
         if game.beginning:
             game.beginning = False
-        state = game.get_state()
+        state = self.get_state(game)
         available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
         action = self.choose_action(state, available_actions)
         return action
+
+
+class Trainer:
+    def __init__(self, game_class, learning_rate=0.1, discount_factor=0.9):
+        # game_class: Reference to the TicTacToe game class
+        self.game_class = game_class
+        # Learning rate and discount factor for training Q-learning players
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+
+    def train(self, games_to_play=10000, max_exploration_rate=1.0, min_exploration_rate=0.05, decay_rate=0.0005):
+        # Initialize two Q-learning players, one for each symbol
+        player_x = TTTQLearningPlayer("X", self.learning_rate, self.discount_factor)
+        player_o = TTTQLearningPlayer("O", self.learning_rate, self.discount_factor)
+
+        for game_index in range(games_to_play):
+            # Dynamically adjust exploration rate as training progresses
+            exploration_rate = max(min_exploration_rate + (max_exploration_rate - min_exploration_rate) * np.exp(-decay_rate * game_index), min_exploration_rate)
+            
+            # Initialize a new game instance
+            game = self.game_class()
+
+            while True:
+                # Determine the current player based on the game state
+                current_player = player_x if game.current_player == "X" else player_o
+                state = current_player.get_state(game)
+                available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
+
+                # Exploration vs exploitation decision
+                if random.uniform(0, 1) < exploration_rate:
+                    action = random.choice(available_actions)
+                else:
+                    action = current_player.choose_action(state, available_actions)
+                
+                # Execute the chosen action and update the game state
+                game_over, winner = game.user_input(*action)
+                
+                # Update the Q-table based on the action's outcome
+                next_state = current_player.get_state(game)  # Get the new state after making the move
+                reward = self.determine_reward(current_player.symbol, winner, game_over)
+                current_player.update_q_table(state, action, next_state, game_over, reward)
+
+                if game_over:
+                    break
+
+            # Logging progress
+            if game_index % 1000 == 0:
+                print(f"Game {game_index}: Exploration rate = {exploration_rate}")
+
+        return player_x, player_o
+
+    def determine_reward(self, player_symbol, winner, game_over):
+        # Define rewards based on the game outcome
+        if not game_over:
+            return 0  # Slight negative reward for continuing the game
+        elif winner == player_symbol:
+            return 100  # Positive reward for winning
+        elif winner is None:
+            return 50  # Neutral reward for a draw
+        else:
+            return -100  # Negative reward for losing
 
 # class TTTQLearningPlayer:
 #     def __init__(self, symbol, learning_rate=0.1, discount_factor=0.9):

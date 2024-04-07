@@ -1,30 +1,33 @@
 import random
+from functools import cache
 
 
 class TTTMinimaxPlayer:
     def __init__(self, symbol):
         self.symbol = symbol
         self.opponent_symbol = "O" if symbol == "X" else "X"
-
+    
     def input(self, game):
         """Determine the best move using the Minimax algorithm."""
-        if game.beginning:
-            game.beginning = False
+        self.game = game
+        if self.game.beginning:
+            self.game.beginning = False
             return random.choice([(i, j) for i in range(3) for j in range(3)])  # Choose a random move
         else:
-            _, best_move = self.minimax(game, True)
+            _, best_move = self.minimax(self.game.get_state(), True)
             return best_move
 
     @classmethod
     def to_string(cls) -> str:
         return "minimax"
 
-    def minimax(self, game, is_maximizing):
-        if game.check_win(self.symbol):  # Check if self.symbol has won
+    @cache
+    def minimax(self, board, is_maximizing):
+        if self.game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)
-        elif game.check_win(self.opponent_symbol):  # Check if self.opponent_symbol has won
+        elif self.game.check_win(self.opponent_symbol):  # Check if self.opponent_symbol has won
             return (-1, None)
-        elif game.check_draw():
+        elif self.game.check_draw():
             return (0, None)
 
         best_move = None
@@ -37,10 +40,10 @@ class TTTMinimaxPlayer:
 
         for row in range(3):
             for col in range(3):
-                if game.board[row][col] == " ":
-                    game.board[row][col] = symbol
-                    score, _ = self.minimax(game, not is_maximizing)
-                    game.board[row][col] = " "
+                if self.game.board[row][col] == " ":
+                    self.game.board[row][col] = symbol
+                    score, _ = self.minimax(self.game.get_state(), not is_maximizing)
+                    self.game.board[row][col] = " "
                     if is_maximizing and score > best_score:
                         best_score, best_move = score, (row, col)
                     elif not is_maximizing and score < best_score:
@@ -55,24 +58,26 @@ class TTTMinimaxABPPlayer:
 
     def input(self, game):
         """Determine the best move using the Minimax algorithm with Alpha-Beta Pruning."""
-        if game.beginning:
-            game.beginning = False
+        self.game = game
+        if self.game.beginning:
+            self.game.beginning = False
             return random.choice([(i, j) for i in range(3) for j in range(3)])  # Choose a random move
         else:
-            _, best_move = self.minimax(game, True, -float('inf'), float('inf'))
+            _, best_move = self.minimax(self.game.get_state(), True, -float('inf'), float('inf'))
             return best_move
 
     @classmethod
     def to_string(cls) -> str:
         return "minimax_abp"
 
-    def minimax(self, game, is_maximizing, alpha, beta):
+    @cache
+    def minimax(self, board, is_maximizing, alpha, beta):
         """Minimax algorithm with Alpha-Beta Pruning to evaluate the best move."""
-        if game.check_win(self.symbol):  # Check if self.symbol has won
+        if self.game.check_win(self.symbol):  # Check if self.symbol has won
             return (1, None)
-        elif game.check_win(self.opponent_symbol):  # Check if opponent has won
+        elif self.game.check_win(self.opponent_symbol):  # Check if opponent has won
             return (-1, None)
-        elif game.check_draw():
+        elif self.game.check_draw():
             return (0, None)
 
         best_move = None
@@ -85,10 +90,10 @@ class TTTMinimaxABPPlayer:
 
         for row in range(3):
             for col in range(3):
-                if game.board[row][col] == " ":
-                    game.board[row][col] = symbol
-                    score, _ = self.minimax(game, not is_maximizing, alpha, beta)
-                    game.board[row][col] = " "
+                if self.game.board[row][col] == " ":
+                    self.game.board[row][col] = symbol
+                    score, _ = self.minimax(self.game.get_state(), not is_maximizing, alpha, beta)
+                    self.game.board[row][col] = " "
                     if is_maximizing:
                         if score > best_score:
                             best_score, best_move = score, (row, col)

@@ -5,6 +5,9 @@ class TicTacToe:
         self.current_player = "X"
         self.beginning = True
 
+    def get_state(self):
+        return tuple(tuple(row) for row in self.board)
+    
     @classmethod
     def to_string(cls) -> str:
         return "ttt"

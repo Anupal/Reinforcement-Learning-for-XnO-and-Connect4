@@ -1,6 +1,7 @@
+import os
+import pickle
 import numpy as np
 import random
-from players.minimax import TTTMinimaxPlayer, TTTMinimaxABPPlayer
 from players.default import TTTDefaultPlayer
 from tqdm import tqdm
 
@@ -17,10 +18,6 @@ class TTTQLearningPlayer:
     @classmethod
     def to_string(self) -> str:
         return "qlearning"
-
-    def get_state(self, game):
-        """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
-        return tuple([tuple(row) for row in game.board])
 
     def update_q_table(self, state, action, next_state, reward, done):
         """Update the Q-table using the Q-learning algorithm."""
@@ -52,7 +49,7 @@ class TTTQLearningPlayer:
         """Determine the best move using the current Q-table."""
         if game.beginning:
             game.beginning = False
-        state = self.get_state(game)
+        state = game.get_state()
         available_actions = [(row, col) for row in range(3) for col in range(3) if game.board[row][col] == " "]
         action = self.choose_action(state, available_actions)
         return action
@@ -60,6 +57,19 @@ class TTTQLearningPlayer:
     def get_last_action(self):
         """Returns the last action taken by this player."""
         return self.last_action
+
+    def save_q_table(self, filename):
+        """Saves the Q-table to disk."""
+        with open(filename, 'wb') as file:
+            pickle.dump(self.q_table, file)
+
+    def load_q_table(self, filename):
+        """Loads the Q-table from disk."""
+        if os.path.exists(filename):
+            with open(filename, 'rb') as file:
+                self.q_table = pickle.load(file)
+        else:
+            print("File does not exist. Starting with an empty Q-table.")
 
 
 class Connect4QLearningPlayer:
@@ -126,6 +136,10 @@ class TTTRandomPlayer:
         self.symbol = symbol
         self.last_action = None
     
+    @classmethod
+    def to_string(self) -> str:
+        return "random"
+    
     def get_state(self, game):
         """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
         return tuple([tuple(row) for row in game.board])
@@ -149,6 +163,10 @@ class Connect4RandomPlayer:
         self.symbol = symbol
         self.last_action = None
     
+    @classmethod
+    def to_string(self) -> str:
+        return "random"
+    
     def get_state(self, game):
         """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
         return tuple([tuple(row) for row in game.board])
@@ -166,16 +184,19 @@ class Connect4RandomPlayer:
         return self.last_action
 
 
-def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class):
-    print("Training Q-learning players X and O with Default player.")
+def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class, show_progress=True):
+    if show_progress:
+        print("Training Q-learning players X and O with Default player.")
     win_count = {"X": 0, "O": 0, "Draw": 0}
 
-    for episode in tqdm(range(num_episodes), desc="Training Progress"):
+    for episode in tqdm(range(num_episodes), desc="Training Progress", disable=(not show_progress)):
         game = game_class()
 
         if game_class.to_string() == "ttt":
             # random_player_x = TTTRandomPlayer("X")
             # random_player_o = TTTRandomPlayer("O")
+            # random_player_x = TTTMinimaxABPPlayer("X")
+            # random_player_o = TTTMinimaxABPPlayer("O")
             random_player_x = TTTDefaultPlayer("X")
             random_player_o = TTTDefaultPlayer("O")
         else:
@@ -227,22 +248,12 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
                 ql_player_o.update_q_table(state_before, action_current_player, state_after, reward_o, game_over)
 
             if game_over:
-                # Update Q-table for the other player with terminal state
-                next_state_x = next_state_o = None  # No next state since the game is over
-                action_x = player_x.get_last_action()
-                action_o = player_o.get_last_action()
-                state_x = game.get_state()
-                state_o = game.get_state()
-                if current_player != ql_player_x:
-                    ql_player_x.update_q_table(state_x, action_x, next_state_x, reward_x, True)
-                if current_player != ql_player_o:
-                    ql_player_o.update_q_table(state_o, action_o, next_state_o, reward_o, True)
                 break
 
             # Switch players
             current_player = player_x if current_player == player_o else player_o
 
-    print(f"Training complete. Win counts: {win_count}")
+    print(f"  Training complete. Win counts: {win_count}")
     return ql_player_x, ql_player_o
 
 
@@ -284,13 +295,14 @@ def tune_parameters(game_class, num_episodes, param_grid):
                 ql_player_o = TTTQLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
                 
                 # Train the Q-learning players with the current set of parameters
-                ql_player_x, ql_player_o = train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
+                ql_player_x, ql_player_o = train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class, False)
                 
                 # Evaluate the players
                 win_counts = evaluate_players(ql_player_x, ql_player_o, game_class, num_games=num_episodes)
                 
                 # Calculate score by considering wins and draws (minimizing losses)
-                score = win_counts['X'] + win_counts['O'] + win_counts['Draw']
+                # score = win_counts['X'] + win_counts['O'] + win_counts['Draw']
+                score = win_counts['Draw']
                 
                 # Update best parameters if current score is better
                 if score > best_score:

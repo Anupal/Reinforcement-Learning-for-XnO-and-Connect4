@@ -6,6 +6,7 @@ class TicTacToe:
         self.beginning = True
 
     def get_state(self):
+        """Returns the current state as a tuple, which is hashable and can be used as a key in the Q-table."""
         return tuple(tuple(row) for row in self.board)
 
     @classmethod

@@ -1,5 +1,8 @@
 import numpy as np
 import random
+from players.minimax import TTTMinimaxPlayer, TTTMinimaxABPPlayer
+from players.default import TTTDefaultPlayer
+from tqdm import tqdm
 
 
 class TTTQLearningPlayer:
@@ -164,15 +167,17 @@ class Connect4RandomPlayer:
 
 
 def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class):
-    print("Training Q-learning players X and O with Random player.")
+    print("Training Q-learning players X and O with Default player.")
     win_count = {"X": 0, "O": 0, "Draw": 0}
 
-    for episode in range(num_episodes):
+    for episode in tqdm(range(num_episodes), desc="Training Progress"):
         game = game_class()
 
         if game_class.to_string() == "ttt":
-            random_player_x = TTTRandomPlayer("X")
-            random_player_o = TTTRandomPlayer("O")
+            # random_player_x = TTTRandomPlayer("X")
+            # random_player_o = TTTRandomPlayer("O")
+            random_player_x = TTTDefaultPlayer("X")
+            random_player_o = TTTDefaultPlayer("O")
         else:
             random_player_x = Connect4RandomPlayer("X")
             random_player_o = Connect4RandomPlayer("O")
@@ -186,6 +191,8 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
         current_player = player_x  # X starts the game
 
         while True:
+            state_before = game.get_state()
+
             if game_class.to_string() == "ttt":
                 row, col = current_player.input(game)
                 game_over, winner = game.user_input(row, col)
@@ -193,6 +200,9 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
                 col = current_player.input(game)
                 game_over, winner = game.user_input(col)
 
+            state_after = game.get_state()
+
+            # Determine rewards and update Q-tables accordingly
             if game_over:
                 if winner == "X":
                     win_count["X"] += 1
@@ -205,15 +215,28 @@ def train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
                 else:  # Draw
                     win_count["Draw"] += 1
                     reward_x = reward_o = 0.5
+            else:
+                # If the game is not over, no immediate reward
+                reward_x = reward_o = 0
 
-                # Update Q-table for both players at the end of the game
+            # Update Q-table for the current player
+            action_current_player = current_player.get_last_action()
+            if current_player == ql_player_x:
+                ql_player_x.update_q_table(state_before, action_current_player, state_after, reward_x, game_over)
+            else:
+                ql_player_o.update_q_table(state_before, action_current_player, state_after, reward_o, game_over)
+
+            if game_over:
+                # Update Q-table for the other player with terminal state
                 next_state_x = next_state_o = None  # No next state since the game is over
                 action_x = player_x.get_last_action()
                 action_o = player_o.get_last_action()
-                state_x = player_x.get_state(game)
-                state_o = player_o.get_state(game)
-                ql_player_x.update_q_table(state_x, action_x, next_state_x, reward_x, True)
-                ql_player_o.update_q_table(state_o, action_o, next_state_o, reward_o, True)
+                state_x = game.get_state()
+                state_o = game.get_state()
+                if current_player != ql_player_x:
+                    ql_player_x.update_q_table(state_x, action_x, next_state_x, reward_x, True)
+                if current_player != ql_player_o:
+                    ql_player_o.update_q_table(state_o, action_o, next_state_o, reward_o, True)
                 break
 
             # Switch players
@@ -250,20 +273,46 @@ def evaluate_players(player_x, player_o, game_class, num_games=100):
 
 def tune_parameters(game_class, num_episodes, param_grid):
     best_params = {}
-    best_avg_win_rate = -1
+    best_score = -1  # Initialize with a score that will be updated
     
     for learning_rate in param_grid['learning_rate']:
         for discount_factor in param_grid['discount_factor']:
             for exploration_rate in param_grid['exploration_rate']:
+                print(f"Combination: learning_rate={learning_rate} discount_factor={discount_factor} exploration_rate={exploration_rate}")
+                # Initialize players with current parameters
                 ql_player_x = TTTQLearningPlayer("X", learning_rate, discount_factor, exploration_rate)
                 ql_player_o = TTTQLearningPlayer("O", learning_rate, discount_factor, exploration_rate)
                 
+                # Train the Q-learning players with the current set of parameters
                 ql_player_x, ql_player_o = train_q_learning_players(num_episodes, ql_player_x, ql_player_o, game_class)
                 
-                avg_win_rate = (evaluate_players(ql_player_x, ql_player_o, game_class)['X'] + evaluate_players(ql_player_x, ql_player_o, game_class)['O']) / (2 * num_episodes)
+                # Evaluate the players
+                win_counts = evaluate_players(ql_player_x, ql_player_o, game_class, num_games=num_episodes)
                 
-                if avg_win_rate > best_avg_win_rate:
-                    best_avg_win_rate = avg_win_rate
-                    best_params = {'learning_rate': learning_rate, 'discount_factor': discount_factor, 'exploration_rate': exploration_rate}
+                # Calculate score by considering wins and draws (minimizing losses)
+                score = win_counts['X'] + win_counts['O'] + win_counts['Draw']
+                
+                # Update best parameters if current score is better
+                if score > best_score:
+                    best_score = score
+                    best_params = {
+                        'learning_rate': learning_rate, 
+                        'discount_factor': discount_factor, 
+                        'exploration_rate': exploration_rate
+                    }
     
-    return best_params, best_avg_win_rate
+    # Calculate adjusted win rate considering the total number of games
+    best_avg_score = best_score / (2 * num_episodes)  # Adjusted for two players over num_episodes
+    
+    return best_params, best_avg_score
+
+
+# Combination: learning_rate=0.1 discount_factor=0.99 exploration_rate=0.01
+# Training Q-learning players X and O with Random player.
+# Training Progress: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10000/10000 [00:01<00:00, 5272.72it/s]
+# Training complete. Win counts: {'X': 2868, 'O': 3744, 'Draw': 3388}
+
+# Combination: learning_rate=0.9 discount_factor=0.9 exploration_rate=0.01
+# Training Q-learning players X and O with Random player.
+# Training Progress: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10000/10000 [00:01<00:00, 5020.04it/s]
+# Training complete. Win counts: {'X': 2764, 'O': 3823, 'Draw': 3413}
